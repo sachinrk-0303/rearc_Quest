@@ -1,0 +1,24 @@
+# --- Python -------------------------------------------------------------
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# --- Databricks ---------------------------------------------------------
+# Bundle state written by the CLI on deploy; per-machine, never shared.
+.databricks/
+build/
+dist/
+
+# --- Source data --------------------------------------------------------
+# Deliberately NOT committed. The whole point of the ingestion layer is that
+# these files are reproducible: `uv run python scripts/bootstrap.py` (or the
+# Databricks ingest job) reconstructs data/raw/ from the two upstream sources.
+# Committing ~5 MB of BLS text would also hide any drift behind a diff.
+data/
+
+# --- OS -----------------------------------------------------------------
+.DS_Store
+Thumbs.db

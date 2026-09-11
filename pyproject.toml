@@ -1,0 +1,30 @@
+[project]
+name = "rearc-data-quest"
+version = "0.1.0"
+description = "Rearc Data Quest (Databricks Edition): BLS productivity + ACS population, modelled Bronze/Silver/Gold"
+requires-python = ">=3.11,<3.12"
+
+# Runtime deps for the *local* half of this project only: source discovery and
+# download. Spark and Databricks runtime libraries are provided by serverless
+# compute and are declared in the bundle config, never installed here.
+dependencies = [
+    "requests>=2.32",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.8",
+]
+
+[tool.uv]
+# Nothing here is importable as an installed package yet; the layout is settled
+# in P0.3. Flip to true (and add a build-system) if ingestion becomes a wheel.
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

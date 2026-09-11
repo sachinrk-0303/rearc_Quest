@@ -1,0 +1,16 @@
+# Normalise line endings to LF everywhere — in the repository AND in the
+# working tree, on every platform. This overrides core.autocrlf, and because
+# it is committed it applies to anyone who clones rather than depending on
+# each developer's local Git configuration.
+#
+# Rationale: this project's code executes on Databricks (Linux). CRLF endings
+# gain us nothing there, break shell scripts, and turn any cross-platform
+# round-trip into a diff where every line looks modified.
+* text=auto eol=lf
+
+# Binary assets: never transform these.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary

@@ -23,8 +23,5 @@ sys.path.insert(0, str(_src))
 
 from ingest.main import main  # noqa: E402  - must follow the sys.path edit
 
-
-from ingest.main import main  # noqa: E402  - must follow the sys.path edit
-
 if __name__ == "__main__":
     main()

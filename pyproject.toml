@@ -22,6 +22,13 @@ dev = [
 # in P0.3. Flip to true (and add a build-system) if ingestion becomes a wheel.
 package = false
 
+[tool.pytest.ini_options]
+# src/ is deliberately not an installed package (package = false above), so the
+# tests need it on the path. Keeps the layout flat while the project is still a
+# set of scripts rather than a wheel.
+pythonpath = ["src"]
+testpaths = ["tests"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

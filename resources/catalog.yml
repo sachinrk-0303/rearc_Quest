@@ -1,0 +1,43 @@
+
+# Unity Catalog structure: Four schemas, one volume.
+
+
+resources: 
+   
+    schemas:
+
+        #Landing zone. Holds the Volume only - no tables. Keeping raw files in
+        # their own schema. The Bronze schema contains only Bronze
+        # tables, nothing else.
+        
+        raw:
+            catalog_name: ${var.catalog}
+            name: raw
+            comment: "Raw files as downloaded from BLS and Data USA. Never modified."
+
+        # Bronze layer. Source text plus origin.
+        bronze:
+            catalog_name: ${var.catalog}
+            name: bronze
+            comment: "Raw ingest with provenance (_source_file, _ingest_timestamp, etc.)"
+
+        #Silver layer. trimmed, typed, deduplicated via AUTO CDC (SCD Type 2).
+
+        silver:
+            catalog_name: ${var.catalog}
+            name: silver
+            comment: "Cleaned and conformed."
+
+
+        #Gold layer. enriched, aggregated, and transformed.
+        gold:
+            catalog_name: ${var.catalog}
+            name: gold
+            comment: "Business-level answers to the three quest questions."
+
+    volumes:
+        landing:
+            catalog_name: ${var.catalog}
+            schema_name: ${resources.schemas.raw.name}
+            name: landing
+            comment: "Landing zone for the ingest job."

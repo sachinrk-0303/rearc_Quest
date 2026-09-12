@@ -1,0 +1,52 @@
+
+# Rearc Data Quest - Databricks Asset Bundle
+# This bundle contains the assets for the Rearc Data Quest
+
+bundle: 
+   name: "rearc_data_quest"
+
+
+# Variables
+#
+# The catalog name is parameterised so dev and prod write to physically
+# separate catalogs.
+
+variables:
+  catalog:
+    description: Unity Catalog holding the raw / bronze / silver / gold schemas.
+    # Deliberately names no real catalog. Both targets override this, so any
+    # target that forgets to fails loudly rather than writing into dev.
+    default: rearc_quest
+
+
+# Resource definitions live in their own files so this root stays cleaner.
+
+include:
+  - resources/*.yml
+
+
+# Targets
+# Default target. `mode: development`
+
+targets:
+
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://dbc-d9bb8da4-fbdb.cloud.databricks.com
+    variables: 
+      catalog: rearc_quest_dev
+
+  prod:
+    mode: production
+    workspace:
+      host: https://dbc-d9bb8da4-fbdb.cloud.databricks.com
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
+    variables: 
+      catalog: rearc_quest_prod
+    run_as:
+      user_name: sachin.kamthankar@gmail.com
+      
+      
+

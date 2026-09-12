@@ -15,12 +15,13 @@ from __future__ import annotations
 import argparse
 import sys
 from collections import Counter
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
 from . import bls, population
 from .landing import SyncResult
-from .manifest import FileState, JsonManifestStore
+from .manifest import FileState, JsonManifestStore, ManifestStore, utc_now
 
 DEFAULT_CONTACT = "sachin.kamthankar@gmail.com"
 
@@ -49,6 +50,7 @@ def run(
     landing_root: str | Path,
     contact_email: str = DEFAULT_CONTACT,
     ingest_date: str | None = None,
+    store: ManifestStore | None = None,
 ) -> dict[str, FileState]:
     """Bring the landing zone up to date with both sources.
 
@@ -57,7 +59,7 @@ def run(
     root = Path(landing_root)
     ingest_date = ingest_date or datetime.now(UTC).strftime("%Y-%m-%d")
 
-    store = JsonManifestStore(root / MANIFEST_RELPATH)
+    store = store or JsonManifestStore(root / MANIFEST_RELPATH)
     prior = store.load()
 
     print(f"landing root : {root}")
@@ -83,20 +85,34 @@ def run(
     print(f"  missing years        {missing or 'none'}")
     print()
 
-    if removed:
-        # Reporting only. What to do about a file the source has withdrawn is
-        # decided in P1.4; silently dropping it would be a data-loss decision
-        # taken by accident.
-        print("REMOVED FROM SOURCE (still present in manifest):")
-        for key in removed:
-            print(f"  {key}")
-        print()
-
     # Written once, at the end. A mid-run failure therefore re-lands some files
     # on the next attempt - which is harmless: a same-day retry writes to the
     # same dated partition, overwriting identical bytes, and Silver deduplicates
     # regardless.
+    seen_keys = {r.state.key for r in [*bls_results, pop_result]}
     merged = {**prior, **{r.state.key: r.state for r in [*bls_results, pop_result]}}
+
+    # Tombstone, never delete. A withdrawn file keeps its manifest row and its
+    # landed partitions, so Bronze continues to read what it already ingested.
+    now = utc_now()
+    for key in removed:
+        if merged[key].removed_at is None:
+            merged[key] = replace(merged[key], removed_at=now)
+
+    # A file BLS re-publishes is no longer withdrawn. This matters because a
+    # reappearing file whose content is unchanged takes the skipped_metadata
+    # path, which carries the prior state forward verbatim - tombstone included.
+    for key in seen_keys:
+        if merged[key].removed_at is not None:
+            merged[key] = replace(merged[key], removed_at=None)
+
+    tombstoned = {k: v for k, v in merged.items() if v.removed_at is not None}
+    if tombstoned:
+        print("WITHDRAWN UPSTREAM (manifest row and landed data retained):")
+        for key, state in sorted(tombstoned.items()):
+            print(f"  {key:<40} since {state.removed_at}")
+        print()
+
     store.save(merged)
 
     print(f"total bytes downloaded : {bls_bytes + pop_bytes:,}")
@@ -121,8 +137,29 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Partition date, YYYY-MM-DD. Defaults to today (UTC).",
     )
+    parser.add_argument(
+        "--manifest-store",
+        choices=("json", "delta"),
+        default="json",
+        help="Where ingest state lives. json for local runs, delta on Databricks.",
+    )
+    parser.add_argument(
+        "--manifest-table",
+        default=None,
+        help="Fully-qualified table, e.g. cat.raw.ingest_manifest." 
+              "Required for --manifest-store delta.",
+    )
     args = parser.parse_args(argv)
-    run(args.landing_root, args.contact_email, args.ingest_date)
+    store = None
+    if args.manifest_store == "delta":
+        if not args.manifest_table:
+            parser.error("--manifest-table is required when --manifest-store is delta")
+        # Imported here, not at module scope, so pyspark is only required when
+        # the Delta backend is actually selected. A local run never touches it.
+        from .delta_manifest import DeltaManifestStore
+
+        store = DeltaManifestStore(args.manifest_table)
+    run(args.landing_root, args.contact_email, args.ingest_date, store)
     return 0
 
 

@@ -39,6 +39,12 @@ class FileState:
     dated partition this version was written to. The two differ because the
     landing zone is partitioned by ingest date - the same logical file lands at
     a new path each time its content actually changes.
+
+    `removed_at` records when the source stopped advertising this file. The row
+    and its landed data are kept: a file being withdrawn upstream does not make
+    the observations it contained wrong, and deleting data because a filename
+    vanished would be a loss decision taken by accident. None means currently
+    published.
     """
 
     key: str
@@ -47,6 +53,9 @@ class FileState:
     last_modified: str | None   # HTTP header; None for sources that don't send one
     landed_path: str
     ingested_at: str            # ISO-8601 UTC
+
+    # Defaulted so a manifest written before this field existed still loads.
+    removed_at: str | None = None
 
 
 def utc_now() -> str:

@@ -1,0 +1,47 @@
+resources:
+  pipelines:
+
+    medallion:
+      name: rearc-quest-medallion
+      serverless: true
+
+      catalog: ${var.catalog}
+      # Silver and Gold tables name themselves fully to publish outside it
+      schema: ${resources.schemas.bronze.name}
+
+      # Added to sys.path during execution, so pipeline sources can import
+      # shared modules directly.
+      root_path: ${workspace.file_path}/src/pipelines
+
+      libraries:
+        - file:
+            path: ${workspace.file_path}/src/pipelines/bronze_observations.py
+        - file:
+            path: ${workspace.file_path}/src/pipelines/bronze_lookups.py
+        - file:
+            path: ${workspace.file_path}/src/pipelines/bronze_population.py
+        - file:
+            path: ${workspace.file_path}/src/pipelines/silver_observations.py
+        - file:
+            path: ${workspace.file_path}/src/pipelines/silver_population.py
+        - file:
+            path: ${workspace.file_path}/src/pipelines/silver_series.py
+        - file:
+            path: ${workspace.file_path}/src/pipelines/gold_questions.sql
+        - file:
+            path: ${workspace.file_path}/src/pipelines/gold_parity.py
+
+      # Resolved names handed to the source files, so no .py or .sql in this
+      # project contains a literal catalog or schema name.
+      configuration:
+        catalog: ${var.catalog}
+        bronze_schema: ${resources.schemas.bronze.name}
+        silver_schema: ${resources.schemas.silver.name}
+        gold_schema: ${resources.schemas.gold.name}
+        landing_path: /Volumes/${var.catalog}/${resources.schemas.raw.name}/${resources.volumes.landing.name}
+
+        # Q3 asks for one specific series and period. Held here rather than
+        # buried in the SQL, so the report reads as parameterised rather than
+        # one-off - and so changing which series is reported needs no code edit.
+        q3_series_id: PRS30006032
+        q3_period: Q01

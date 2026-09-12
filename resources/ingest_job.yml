@@ -1,0 +1,39 @@
+resources:
+  jobs:
+
+    ingest:
+      name: rearc-quest-ingest
+
+      # The manifest is read, mutated and written whole. Two concurrent runs
+      # would race and one would lose its updates, so serialise them.
+      max_concurrent_runs: 1
+
+      # BLS publishes near the start of the second and third month of each
+      # quarter. A weekly check is cheap - unchanged files transfer no bytes -
+      # and catches a release within days rather than waiting for a person.
+      # mode: development pauses this automatically, so it only runs in prod.
+      schedule:
+        quartz_cron_expression: "0 0 6 ? * MON"
+        timezone_id: UTC
+
+      tasks:
+        - task_key: land_sources
+          environment_key: default
+          spark_python_task:
+            python_file: ${workspace.file_path}/src/run_ingest.py
+            parameters:
+              - --landing-root
+              - /Volumes/${var.catalog}/${resources.schemas.raw.name}/${resources.volumes.landing.name}
+              - --manifest-store
+              - delta
+              - --manifest-table
+              - ${var.catalog}.${resources.schemas.raw.name}.ingest_manifest
+              - --contact-email
+              - ${var.contact_email}
+
+      environments:
+        - environment_key: default
+          spec:
+            client: "3"
+            dependencies:
+              - requests>=2.32

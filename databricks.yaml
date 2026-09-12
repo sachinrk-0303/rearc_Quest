@@ -17,6 +17,11 @@ variables:
     # Deliberately names no real catalog. Both targets override this, so any
     # target that forgets to fails loudly rather than writing into dev.
     default: rearc_quest
+  contact_email:
+    description: >-
+      Address sent in the User-Agent. BLS returns 403 to requests that carry no
+      contact information.
+    default: sachin.kamthankar@gmail.com
 
 
 # Resource definitions live in their own files so this root stays cleaner.

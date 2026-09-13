@@ -12,16 +12,30 @@ bundle:
 # separate catalogs.
 
 variables:
+  
   catalog:
     description: Unity Catalog holding the raw / bronze / silver / gold schemas.
     # Deliberately names no real catalog. Both targets override this, so any
     # target that forgets to fails loudly rather than writing into dev.
     default: rearc_quest
+  
   contact_email:
     description: >-
       Address sent in the User-Agent. BLS returns 403 to requests that carry no
       contact information.
     default: sachin.kamthankar@gmail.com
+  
+  name_prefix:
+    description: >-
+      Prepended to job and pipeline names so the environment is visible in the
+      workspace UI. Empty in dev, because mode: development already prefixes
+      names with "[dev <user>]"; prod has no such preset and would otherwise
+      show names identical to a personal sandbox. Applied to resource names
+      only - deliberately NOT via presets.name_prefix, which would also prefix
+      the schema names and produce "[prod] bronze".
+    default: ""
+
+  
   analyst_group:
     description: >-
       Account group granted read access to the Gold serving layer. Must be an
@@ -30,6 +44,22 @@ variables:
       resources - see PROCESS.md - so the group is a prerequisite, like the
       catalog.
     default: rearc_analysts_group
+  
+  prod_service_principal:
+    description: >-
+      Application ID of the service principal that deploys and runs prod. Used
+      for run_as and for the bundle root path, so production artifacts live in
+      that principal's own workspace folder rather than somewhere every user
+      can write.
+    default: b7f25409-7ab1-4bba-a96a-82e05ba9e3f0
+
+  engineer_principal:
+    description: >-
+      Read access across every layer, for verification and debugging. In a real
+      deployment this is an account group of data engineers; here it names the
+      project owner directly, since only one person works on this and account
+      groups must be created by hand on Free Edition.
+    default: sachin.kamthankar@gmail.com
 
 
 # Resource definitions live in their own files so this root stays cleaner.
@@ -53,13 +83,28 @@ targets:
 
   prod:
     mode: production
+    presets:
+      # mode: production leaves triggers active. Paused deliberately until prod
+      # has been run through by hand at least once - an unattended weekly job
+      # against an environment nobody has watched work is not a schedule, it is
+      # a surprise. Remove this block to go live.
+      trigger_pause_status: PAUSED
     workspace:
       host: https://dbc-d9bb8da4-fbdb.cloud.databricks.com
-      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
+      root_path: /Workspace/Users/${var.prod_service_principal}/.bundle/${bundle.name}/${bundle.target}
     variables: 
       catalog: rearc_quest_prod
+      name_prefix: "[prod] "
     run_as:
-      user_name: sachin.kamthankar@gmail.com
-      
+      service_principal_name: ${var.prod_service_principal}
+    permissions:
+      - level: CAN_MANAGE
+        service_principal_name: ${var.prod_service_principal}
+      # Included deliberately. Without it, these ACLs are only applied when the
+      # service principal is the deploying identity - so the first CI deploy
+      # would rewrite them to contain the machine identity alone and silently
+      # drop the human who needs to debug it.
+      - level: CAN_MANAGE
+        user_name: ${var.engineer_principal}     
       
 

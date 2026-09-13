@@ -1,5 +1,7 @@
 # Rearc Data Quest — Databricks Edition
 
+[![CI](https://github.com/sachinrk-0303/rearc_Quest/actions/workflows/ci.yml/badge.svg)](https://github.com/sachinrk-0303/rearc_Quest/actions/workflows/ci.yml)
+
 BLS productivity time series and ACS population estimates, ingested idempotently
 from their live sources and modelled Bronze → Silver → Gold as a single Spark
 Declarative Pipeline, deployed entirely through a Databricks Asset Bundle.

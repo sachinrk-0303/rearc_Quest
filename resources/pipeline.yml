@@ -2,7 +2,7 @@ resources:
   pipelines:
 
     medallion:
-      name: rearc-quest-medallion
+      name: ${var.name_prefix}rearc-quest-medallion
       serverless: true
 
       catalog: ${var.catalog}

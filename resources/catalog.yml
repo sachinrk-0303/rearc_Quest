@@ -14,12 +14,23 @@ resources:
             catalog_name: ${var.catalog}
             name: raw
             comment: "Raw files as downloaded from BLS and Data USA. Never modified."
+            grants:
+                - principal: ${var.engineer_principal}
+                  privileges:
+                    - USE_SCHEMA
+                    - SELECT
+                    - READ_VOLUME
 
         # Bronze layer. Source text plus origin.
         bronze:
             catalog_name: ${var.catalog}
             name: bronze
             comment: "Raw ingest with provenance (_source_file, _ingest_timestamp, etc.)"
+            grants:
+                - principal: ${var.engineer_principal}
+                  privileges:
+                    - USE_SCHEMA
+                    - SELECT
 
         #Silver layer. trimmed, typed, deduplicated via AUTO CDC (SCD Type 2).
 
@@ -27,6 +38,11 @@ resources:
             catalog_name: ${var.catalog}
             name: silver
             comment: "Cleaned and conformed."
+            grants:
+                - principal: ${var.engineer_principal}
+                  privileges:
+                    - USE_SCHEMA
+                    - SELECT
 
 
         #Gold layer. enriched, aggregated, and transformed.
@@ -34,6 +50,11 @@ resources:
             catalog_name: ${var.catalog}
             name: gold
             comment: "Business-level answers to the three quest questions, plus current-row serving views."
+            grants:
+                - principal: ${var.engineer_principal}
+                  privileges:
+                    - USE_SCHEMA
+                    - SELECT
 
             # The only schema a read-only analyst can reach. Gold holds the
             # three answers and the current-row views over Silver; a Unity
@@ -41,11 +62,10 @@ resources:
             # views needs no grant on silver at all. That is why there is no
             # grants block on bronze, silver or raw - the analyst cannot see
             # SCD Type 2 history, the quarantine tables, or anything in Bronze.
-            grants:
-              - principal: ${var.analyst_group}
-                privileges:
-                  - USE_SCHEMA
-                  - SELECT
+                - principal: ${var.analyst_group}
+                  privileges:
+                    - USE_SCHEMA
+                    - SELECT
 
     volumes:
         landing:

@@ -1,0 +1,103 @@
+name: Quest_CI
+
+# quality      - is the Python correct? Needs no Databricks connection, so it
+#                runs on every push and pull request, forks included.
+# validate     - does the bundle still resolve? Needs credentials, so it is
+#                skipped on fork pull requests where secrets are unavailable.
+# deploy-dev   - push to dev. Authenticates as the human owner, because
+#                mode: development derives the schema prefix AND the root path
+#                from whoever deploys. A service principal here would create a
+#                parallel dev_rearc_service_* set rather than update yours.
+# deploy-prod  - push to main. Authenticates as rearc_service over OAuth.
+#
+# Deploy only, never run. `bundle deploy` consumes no compute; triggering the
+# pipeline does, and Free Edition caps concurrent serverless compute low enough
+# that a warm SQL warehouse alone has blocked an update.
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quest-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Lint and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # --frozen fails if uv.lock disagrees with pyproject.toml, so a
+      # dependency added without relocking is caught here rather than becoming
+      # a difference between one machine and the next.
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Lint
+        run: uv run ruff check src tests
+
+      - name: Test
+        run: uv run pytest -q
+
+  validate:
+    name: Validate both targets
+    runs-on: ubuntu-latest
+    needs: quality
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: databricks/setup-cli@main
+      # Both targets: they differ in more than a name, so a change can resolve
+      # in one and fail in the other.
+      - run: databricks bundle validate -t dev
+      - run: databricks bundle validate -t prod
+
+  deploy-dev:
+    name: Deploy to dev
+    runs-on: ubuntu-latest
+    needs: quality
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: databricks/setup-cli@main
+      - run: databricks bundle validate -t dev
+      - run: databricks bundle deploy -t dev
+
+  deploy-prod:
+    name: Deploy to prod
+    runs-on: ubuntu-latest
+    needs: quality
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Named environment so a required reviewer can be added later without
+    # touching this file.
+    environment: prod
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: databricks/setup-cli@main
+      - run: databricks bundle validate -t prod
+      - run: databricks bundle deploy -t prod

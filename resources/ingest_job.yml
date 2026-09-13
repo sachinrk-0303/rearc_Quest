@@ -2,7 +2,7 @@ resources:
   jobs:
 
     ingest:
-      name: rearc-quest-ingest
+      name: ${var.name_prefix}rearc-quest-ingest
 
       # The manifest is read, mutated and written whole. Two concurrent runs
       # would race and one would lose its updates, so serialise them.
@@ -30,6 +30,17 @@ resources:
               - ${var.catalog}.${resources.schemas.raw.name}.ingest_manifest
               - --contact-email
               - ${var.contact_email}
+
+        # Landing files and rebuilding the warehouse are one unit of work, not
+        # two things that happen to be scheduled near each other. Chaining them
+        # means the medallion tables are only ever recomputed after an ingest
+        # actually completed - never on an independent timer that could fire
+        # mid-download, and never not at all.
+        - task_key: refresh_medallion
+          depends_on:
+            - task_key: land_sources
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.medallion.id}
 
       environments:
         - environment_key: default

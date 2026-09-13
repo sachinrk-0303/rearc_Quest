@@ -22,6 +22,14 @@ variables:
       Address sent in the User-Agent. BLS returns 403 to requests that carry no
       contact information.
     default: sachin.kamthankar@gmail.com
+  analyst_group:
+    description: >-
+      Account group granted read access to the Gold serving layer. Must be an
+      ACCOUNT group: Unity Catalog cannot see workspace-local groups and
+      rejects them with PRINCIPAL_DOES_NOT_EXIST. Identities are not bundle
+      resources - see PROCESS.md - so the group is a prerequisite, like the
+      catalog.
+    default: rearc_analysts_group
 
 
 # Resource definitions live in their own files so this root stays cleaner.

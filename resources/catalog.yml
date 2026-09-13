@@ -33,7 +33,19 @@ resources:
         gold:
             catalog_name: ${var.catalog}
             name: gold
-            comment: "Business-level answers to the three quest questions."
+            comment: "Business-level answers to the three quest questions, plus current-row serving views."
+
+            # The only schema a read-only analyst can reach. Gold holds the
+            # three answers and the current-row views over Silver; a Unity
+            # Catalog view runs with its owner's privileges, so reading those
+            # views needs no grant on silver at all. That is why there is no
+            # grants block on bronze, silver or raw - the analyst cannot see
+            # SCD Type 2 history, the quarantine tables, or anything in Bronze.
+            grants:
+              - principal: ${var.analyst_group}
+                privileges:
+                  - USE_SCHEMA
+                  - SELECT
 
     volumes:
         landing:

@@ -30,6 +30,8 @@ resources:
             path: ${workspace.file_path}/src/pipelines/gold_questions.sql
         - file:
             path: ${workspace.file_path}/src/pipelines/gold_parity.py
+        - file:
+            path: ${workspace.file_path}/src/pipelines/gold_serving.sql
 
       # Resolved names handed to the source files, so no .py or .sql in this
       # project contains a literal catalog or schema name.

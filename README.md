@@ -168,7 +168,6 @@ src/
     gold_parity.py           DataFrame API cross-check
 tests/                       27 tests, no network and no Spark
 PROCESS.md                   decisions, findings, trade-offs, AI usage
-docs/HANDOFF.md              working state: measured numbers and gotchas
 ```
 
 ---

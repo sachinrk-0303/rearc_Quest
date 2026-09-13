@@ -44,3 +44,36 @@ SELECT
   nation
 FROM ${catalog}.${silver_schema}.population
 WHERE __END_AT IS NULL;
+
+
+-- Every check that must read zero, in one place.
+--
+-- This view exists for a single reason: the quarantine tables live in silver,
+-- which a read-only analyst cannot see, so a dashboard built on them would
+-- work for its author and fail for everyone it was shared with. Surfacing the
+-- counts through gold uses the same owner's-privileges property as the views
+-- above - the numbers become visible without the tables behind them becoming
+-- readable.
+--
+-- Only pass/fail checks belong here, never scale. An earlier draft included
+-- "series answered = 282" and "current observations = 77,126" as expected
+-- values, which would turn the dashboard red the day BLS publishes a new
+-- series - reporting growth in the source as a defect in the pipeline. Counts
+-- that are merely informative are queried directly by the dashboard instead.
+CREATE OR REPLACE VIEW ${catalog}.${gold_schema}.data_quality AS
+SELECT
+  'Observations quarantined' AS check_name,
+  count(*)                   AS failing_rows
+FROM ${catalog}.${silver_schema}.pr_observations_quarantine
+
+UNION ALL
+SELECT
+  'Population rows quarantined',
+  count(*)
+FROM ${catalog}.${silver_schema}.population_quarantine
+
+UNION ALL
+SELECT
+  concat('SQL vs PySpark: ', question),
+  differing_rows
+FROM ${catalog}.${gold_schema}.parity_check;

@@ -18,8 +18,6 @@ dev = [
 ]
 
 [tool.uv]
-# Nothing here is importable as an installed package yet; the layout is settled
-# in P0.3. Flip to true (and add a build-system) if ingestion becomes a wheel.
 package = false
 
 [tool.pytest.ini_options]

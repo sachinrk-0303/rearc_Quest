@@ -9,8 +9,6 @@ resources:
       # Silver and Gold tables name themselves fully to publish outside it
       schema: ${resources.schemas.bronze.name}
 
-      # Added to sys.path during execution, so pipeline sources can import
-      # shared modules directly.
       root_path: ${workspace.file_path}/src/pipelines
 
       libraries:

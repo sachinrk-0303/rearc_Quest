@@ -125,9 +125,9 @@ def content_changed(prior: FileState | None, digest: str) -> bool:
 class ManifestStore(Protocol):
     """Where file state lives between runs.
 
-    Kept behind an interface so the storage choice is independent of the
-    download logic: this step uses a JSON file in the Volume, and P1.3 replaces
-    it with a Delta table without any caller changing.
+    Kept behind an interface so the storage choice stays independent of the
+    download logic: the JSON and Delta stores are interchangeable without any
+    caller changing.
     """
 
     def load(self) -> dict[str, FileState]: ...

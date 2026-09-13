@@ -100,10 +100,7 @@ def parse_listing(html: str) -> list[str]:
 
 
 def detect_removed(prior: dict[str, FileState], seen: set[str]) -> list[str]:
-    """Keys we hold that the source no longer advertises.
-
-    Reporting only. What to do about a vanished file is decided in P1.4.
-    """
+    """Keys we hold that the source no longer advertises."""
     return sorted(k for k in prior if k.startswith("bls/") and k not in seen)
 
 

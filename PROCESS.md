@@ -106,6 +106,21 @@ transcription and dialect errors, not a misreading of the question — had Q05 b
 wrongly included, both would include it and both would agree. The only real check
 on the interpretation is the two published values.
 
+### What is tested locally, and what is not
+
+Ingestion is pure Python behind a `ManifestStore` protocol, which is why 27
+tests run in well under a second with no network and no Spark. They are not
+coverage for its own sake — several are the decisions above, pinned: that
+canonical hashing ignores key order, that raw hashing does not, and that
+canonicalising still detects a real change; that identical content does not
+land twice; that a manifest written before tombstones existed still loads.
+
+Nothing local exercises Spark. The transforms are checked in the pipeline
+instead — contracts, expectations, quarantine counts and `parity_check` — so a
+Silver bug surfaces on the next run rather than in a test. A cluster-backed
+integration test is the honest missing piece; on Free Edition it would double
+the only serverless capacity the pipeline itself needs.
+
 ### Re-running ingestion safely
 
 Filenames are discovered from the BLS directory listing, never hardcoded. Every

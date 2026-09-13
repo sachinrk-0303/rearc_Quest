@@ -48,6 +48,23 @@ suspended 1-year estimates for the pandemic year — and years without one are
 kept, not dropped. The brief cites seven matching years: that was 2013–2019,
 before ACS published 2021–2024.
 
+<details>
+<summary><b>All three, queried in production</b></summary>
+
+<br/>
+
+![Q1 — mean and both standard deviations](docs/screenshots/Submission_Answers/Answer_Q1.png)
+
+![Q2 — the two published acceptance values, reproduced exactly](docs/screenshots/Submission_Answers/Answer_Q2.png)
+
+Q3, scrolled to the population-matched years. **2020, 2025 and 2026 are `null`**
+— the row is kept and the population is absent, rather than the year being
+dropped by an inner join:
+
+![Q3 — years with no ACS population are kept, not dropped](docs/screenshots/Submission_Answers/Answer_Q3.png)
+
+</details>
+
 ---
 
 ## How it fits together
@@ -62,11 +79,19 @@ flowchart LR
     SILVER --> GOLD["gold<br/>3 answers, plus views"]
 ```
 
+All three layers are one pipeline, not three — a dataset that names itself fully
+publishes outside the pipeline's default schema, so a single dependency graph
+spans the medallion and Gold can never be computed from a stale Silver:
+
+![The medallion as one dependency graph, in production](docs/screenshots/Jobs_Pipelines/prod_rearc-quest-medallion_1.png)
+
 Filenames are discovered from the BLS directory listing rather than hardcoded,
 every file is `HEAD`-checked before any body transfers, and only a SHA-256
 difference causes one to land. **A second run transfers 2,748 bytes** — the
 directory listing, which discovery must always fetch, and the population payload,
-which offers no `Last-Modified`.
+which offers no `Last-Modified`:
+
+![An unchanged re-run: 12 files skipped on metadata, 2,748 bytes total](docs/screenshots/Jobs_Pipelines/Ingestion_idempotent_run.png)
 
 ---
 
@@ -81,13 +106,29 @@ which offers no `Last-Modified`.
 
 ### One-time setup
 
+Steps 1–3 create the three things the bundle deliberately does not: catalogs,
+because the API refuses them under Default Storage, and identities, because
+identity lifecycle belongs to IT rather than to a data product.
+
 1. **Create the catalogs in the workspace UI** — `rearc_quest_dev` and
-   `rearc_quest_prod`. Deliberately not in the bundle: under Default Storage the
-   API refuses catalog creation both ways. Everything beneath them is bundle-owned.
-2. **Point the bundle at your workspace.** In [`databricks.yaml`](databricks.yaml)
-   set `workspace.host` on both targets, and `contact_email` to your own address —
-   BLS returns **403** to requests carrying no contact information.
-3. **Authenticate.** The host alone resolves credentials; there is no `profile:`
+   `rearc_quest_prod`. Everything beneath them is bundle-owned.
+2. **Create an account group** for the read-only analyst — `rearc_analysts_group`
+   by default. Account console → **Identity and access** → **Groups**. It must be
+   an *account* group: Unity Catalog cannot see workspace-local groups and rejects
+   them with `PRINCIPAL_DOES_NOT_EXIST`, which fails the deploy.
+3. **Create a service principal** for production, and note its Application ID.
+4. **Point the bundle at your workspace.** In [`databricks.yaml`](databricks.yaml),
+   set `workspace.host` on both targets, then repoint these four variables — each
+   currently names something specific to the workspace this was built in:
+
+   | variable | what it is |
+   |---|---|
+   | `contact_email` | Sent in the User-Agent — BLS returns **403** without it |
+   | `analyst_group` | The account group from step 2 |
+   | `prod_service_principal` | The Application ID from step 3 |
+   | `engineer_principal` | You — read access across every layer, for debugging |
+
+5. **Authenticate.** The host alone resolves credentials; there is no `profile:`
    to keep in sync.
 
    ```powershell
@@ -122,7 +163,9 @@ landed files alone, which is how reproducibility was verified rather than assume
 SELECT * FROM rearc_quest_prod.gold.q1_population_stats;
 SELECT * FROM rearc_quest_prod.gold.q2_best_year_by_series ORDER BY series_id;
 SELECT * FROM rearc_quest_prod.gold.q3_series_value_and_population ORDER BY year;
-SELECT * FROM rearc_quest_prod.gold.parity_check;
+
+-- Five checks, every one expected to read 0
+SELECT * FROM rearc_quest_prod.gold.data_quality;
 ```
 
 On `dev` the schemas carry the `dev_<user>_` prefix. No `.py`, `.sql` or `.yml`
@@ -135,6 +178,13 @@ Push to **`dev`** and GitHub Actions lints, tests and deploys the dev target as
 the repository owner. Push to **`main`** and it deploys prod as a service
 principal, which owns every prod object it deploys and runs. Deploy only — no
 job or pipeline is triggered by a push.
+
+The same commit, pushed to each branch. Lint and test always run; the deploy
+jobs are mutually exclusive:
+
+| push to `dev` | push to `main` |
+|---|---|
+| ![dev deploy runs, prod skipped](docs/screenshots/CI_CD/CI_CD_branch_gating_2.png) | ![prod deploy runs, dev skipped](docs/screenshots/CI_CD/CI_CD_branch_gating_1.png) |
 
 ---
 
@@ -171,7 +221,7 @@ PROCESS.md                   architecture, trade-offs, retrospective, AI usage
 ## How it is verified
 
 ```powershell
-uv run pytest -q            # 27 tests, no network and no Spark
+uv run pytest -q            # 27 tests — discovery, hashing, change detection, landing
 uv run ruff check src tests
 ```
 
@@ -183,5 +233,31 @@ And continuously, inside the pipeline:
 - **`gold.parity_check`** compares each SQL answer against an independent
   DataFrame API implementation and fails on any differing row
 
+`gold.data_quality` unions the two quarantine counts and the three parity results
+into a single row set. All five read **0**:
+
+![Both quarantines empty, all three parity checks at zero](docs/screenshots/Data_Quality/Data_Quality.png)
+
+<details>
+<summary><b>Access control, verified as the analyst rather than asserted</b></summary>
+
+<br/>
+
+The same user, in the same session. Gold resolves — a Unity Catalog view runs
+with its owner's privileges, so all 77,126 current rows come back with no grant
+on `silver` at all:
+
+![Analyst reads 77,126 rows through the gold view](docs/screenshots/UC_Access_Control/Gold_RO_Success_2.png)
+
+The table beneath it does not:
+
+![INSUFFICIENT_PERMISSIONS on the silver schema](docs/screenshots/UC_Access_Control/Silver_Access_Failed.png)
+
+</details>
+
 Every number above was reproduced in production, in an environment deployed by
 CI and owned end to end by a service principal.
+
+**[`docs/screenshots/`](docs/screenshots/)** holds the full set, including the
+bundle-deployed job chain, the first ingest run for contrast with the idempotent
+one, and the Genie space answering questions against Gold in plain English.

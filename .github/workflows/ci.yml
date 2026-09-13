@@ -23,9 +23,12 @@ on:
 permissions:
   contents: read
 
+# Superseding a pull request run is free; superseding a deploy is not. A
+# cancelled `bundle deploy` can leave the workspace holding half a bundle, so
+# pushes to dev and main queue behind each other instead of interrupting.
 concurrency:
   group: quest-ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   quality:
@@ -64,7 +67,7 @@ jobs:
       DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
     steps:
       - uses: actions/checkout@v4
-      - uses: databricks/setup-cli@main
+      - uses: databricks/setup-cli@v1.16.1
       # Both targets: they differ in more than a name, so a change can resolve
       # in one and fail in the other.
       - run: databricks bundle validate -t dev
@@ -80,7 +83,7 @@ jobs:
       DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-      - uses: databricks/setup-cli@main
+      - uses: databricks/setup-cli@v1.16.1
       - run: databricks bundle validate -t dev
       - run: databricks bundle deploy -t dev
 
@@ -98,6 +101,6 @@ jobs:
       DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
     steps:
       - uses: actions/checkout@v4
-      - uses: databricks/setup-cli@main
+      - uses: databricks/setup-cli@v1.16.1
       - run: databricks bundle validate -t prod
       - run: databricks bundle deploy -t prod
